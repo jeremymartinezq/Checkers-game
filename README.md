@@ -2,6 +2,9 @@
 
 A lightweight, browser-based implementation of the classic checkers (draughts) game built with pure HTML, CSS, and JavaScript.
 
+## Design
+<img width="349" alt="Screenshot 2025-04-02 105907" src="https://github.com/user-attachments/assets/1bbb2410-6986-4680-bc61-fe3dab9dbed1" />
+
 ## Features
 
 - Complete implementation of international checkers rules
@@ -54,10 +57,6 @@ cd checkers-game
 - Customizable board themes
 - Network multiplayer support
 - Timer/clock functionality
-
-## Design
-<img width="349" alt="Screenshot 2025-04-02 105907" src="https://github.com/user-attachments/assets/1bbb2410-6986-4680-bc61-fe3dab9dbed1" />
-
 
 ## License
 
