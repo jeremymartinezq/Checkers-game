@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Checkers Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .game-info {
+      margin-bottom: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 50px);
+      grid-template-rows: repeat(8, 50px);
+      border: 5px solid #654321;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .cell {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    .black {
+      background-color: #654321;
+    }
+    
+    .white {
+      background-color: #e6ccb3;
+    }
+    
+    .piece {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      transition: transform 0.2s;
+    }
+    
+    .red-piece {
+      background-color: #cc0000;
+    }
+    
+    .black-piece {
+      background-color: #333333;
+    }
+    
+    .king.red-piece::after,
+    .king.black-piece::after {
+      content: "K";
+      color: white;
+      font-weight: bold;
+      font-size: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .selected {
+      transform: scale(1.2);
+      box-shadow: 0 0 10px 5px #ffcc00;
+    }
+    
+    .valid-move {
+      position: relative;
+    }
+    
+    .valid-move::before {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background-color: rgba(0, 255, 0, 0.5);
+      border-radius: 50%;
+    }
+    
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    button {
+      padding: 10px 15px;
+      font-size: 16px;
+      background-color: #654321;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: #8B4513;
+    }
+  </style>
+</head>
+<body>
+  <h1>Checkers Game</h1>
+  <div class="game-info" id="game-info">Red's turn</div>
+  <div class="board" id="board"></div>
+  <div class="controls">
+    <button id="reset-btn">Reset Game</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const board = document.getElementById('board');
+      const gameInfo = document.getElementById('game-info');
+      const resetBtn = document.getElementById('reset-btn');
+      
+      // Game state
+      let gameState = {
+        board: [],
+        currentPlayer: 'red',
+        selectedPiece: null,
+        validMoves: [],
+        mustJump: false,
+        gameOver: false
+      };
+      
+      // Initialize board
+      function initBoard() {
+        gameState.board = Array(8).fill().map(() => Array(8).fill(null));
+        
+        // Place pieces
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 8; col++) {
+            // Only place pieces on black cells
+            if ((row + col) % 2 === 1) {
+              if (row < 3) {
+                gameState.board[row][col] = { color: 'black', isKing: false };
+              } else if (row > 4) {
+                gameState.board[row][col] = { color: 'red', isKing: false };
+              }
+            }
+          }
+        }
+        
+        renderBoard();
+        updateGameInfo();
+      }
+      
+      // Render the board
+      function renderBoard() {
+        board.innerHTML = '';
+        
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 8; col++) {
+            const cell = document.createElement('div');
+            cell.className = `cell ${(row + col) % 2 === 0 ? 'white' : 'black'}`;
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            
+            const piece = gameState.board[row][col];
+            if (piece) {
+              const pieceElement = document.createElement('div');
+              pieceElement.className = `piece ${piece.color}-piece`;
+              
+              if (piece.isKing) {
+                pieceElement.classList.add('king');
+              }
+              
+              if (gameState.selectedPiece && gameState.selectedPiece.row === row && gameState.selectedPiece.col === col) {
+                pieceElement.classList.add('selected');
+              }
+              
+              cell.appendChild(pieceElement);
+            }
+            
+            if (isValidMove(row, col)) {
+              cell.classList.add('valid-move');
+            }
+            
+            cell.addEventListener('click', () => handleCellClick(row, col));
+            board.appendChild(cell);
+          }
+        }
+      }
+      
+      // Check if a position is a valid move
+      function isValidMove(row, col) {
+        return gameState.validMoves.some(move => move.row === row && move.col === col);
+      }
+      
+      // Handle cell click
+      function handleCellClick(row, col) {
+        if (gameState.gameOver) return;
+        
+        const piece = gameState.board[row][col];
+        
+        // If a piece is already selected
+        if (gameState.selectedPiece) {
+          // Try to move to this cell
+          if (isValidMove(row, col)) {
+            movePiece(gameState.selectedPiece.row, gameState.selectedPiece.col, row, col);
+            
+            // Check if there are additional jumps available
+            if (gameState.mustJump && canJumpFrom(row, col)) {
+              gameState.selectedPiece = { row, col };
+              gameState.validMoves = getPossibleMoves(row, col, true);
+              renderBoard();
+            } else {
+              // End turn
+              gameState.selectedPiece = null;
+              gameState.validMoves = [];
+              switchPlayer();
+              checkWinner();
+              updateGameInfo();
+              renderBoard();
+            }
+          } else {
+            // Deselect current piece if clicking on empty cell or opponent's piece
+            if (!piece || piece.color !== gameState.currentPlayer) {
+              gameState.selectedPiece = null;
+              gameState.validMoves = [];
+              renderBoard();
+              return;
+            }
+            
+            // Select a different piece of current player
+            if (piece.color === gameState.currentPlayer) {
+              // Check if we must jump
+              const mustJump = checkForMandatoryJumps();
+              
+              // If must jump and this piece can't jump, return
+              if (mustJump && !canJumpFrom(row, col)) {
+                return;
+              }
+              
+              gameState.selectedPiece = { row, col };
+              gameState.validMoves = getPossibleMoves(row, col, mustJump);
+              renderBoard();
+            }
+          }
+        } else {
+          // If no piece is selected yet
+          if (piece && piece.color === gameState.currentPlayer) {
+            // Check if we must jump
+            const mustJump = checkForMandatoryJumps();
+            
+            // If must jump and this piece can't jump, return
+            if (mustJump && !canJumpFrom(row, col)) {
+              return;
+            }
+            
+            gameState.selectedPiece = { row, col };
+            gameState.validMoves = getPossibleMoves(row, col, mustJump);
+            renderBoard();
+          }
+        }
+      }
+      
+      // Check if there are mandatory jumps for current player
+      function checkForMandatoryJumps() {
+        let hasJump = false;
+        
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 8; col++) {
+            const piece = gameState.board[row][col];
+            if (piece && piece.color === gameState.currentPlayer) {
+              if (canJumpFrom(row, col)) {
+                hasJump = true;
+                break;
+              }
+            }
+          }
+          if (hasJump) break;
+        }
+        
+        gameState.mustJump = hasJump;
+        return hasJump;
+      }
+      
+      // Check if a piece can jump
+      function canJumpFrom(row, col) {
+        const piece = gameState.board[row][col];
+        if (!piece) return false;
+        
+        const directions = piece.isKing ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : 
+                          (piece.color === 'red' ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]);
+        
+        for (const [dr, dc] of directions) {
+          const jumpRow = row + dr * 2;
+          const jumpCol = col + dc * 2;
+          const midRow = row + dr;
+          const midCol = col + dc;
+          
+          if (jumpRow >= 0 && jumpRow < 8 && jumpCol >= 0 && jumpCol < 8) {
+            const midPiece = gameState.board[midRow][midCol];
+            
+            if (midPiece && midPiece.color !== piece.color && !gameState.board[jumpRow][jumpCol]) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      }
+      
+      // Get possible moves for a piece
+      function getPossibleMoves(row, col, mustJump = false) {
+        const piece = gameState.board[row][col];
+        const moves = [];
+        
+        if (!piece) return moves;
+        
+        // Define directions based on piece type
+        const directions = piece.isKing ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : 
+                          (piece.color === 'red' ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]);
+        
+        // Check for jumps first
+        for (const [dr, dc] of directions) {
+          const jumpRow = row + dr * 2;
+          const jumpCol = col + dc * 2;
+          const midRow = row + dr;
+          const midCol = col + dc;
+          
+          if (jumpRow >= 0 && jumpRow < 8 && jumpCol >= 0 && jumpCol < 8) {
+            const midPiece = gameState.board[midRow][midCol];
+            
+            if (midPiece && midPiece.color !== piece.color && !gameState.board[jumpRow][jumpCol]) {
+              moves.push({ row: jumpRow, col: jumpCol, isJump: true, captureRow: midRow, captureCol: midCol });
+            }
+          }
+        }
+        
+        // If jumps are available or mandated, return only jumps
+        if (moves.length > 0 || mustJump) {
+          return moves;
+        }
+        
+        // Otherwise, check for regular moves
+        for (const [dr, dc] of directions) {
+          const newRow = row + dr;
+          const newCol = col + dc;
+          
+          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !gameState.board[newRow][newCol]) {
+            moves.push({ row: newRow, col: newCol, isJump: false });
+          }
+        }
+        
+        return moves;
+      }
+      
+      // Move a piece
+      function movePiece(fromRow, fromCol, toRow, toCol) {
+        const piece = gameState.board[fromRow][fromCol];
+        
+        // Find the move data
+        const moveData = gameState.validMoves.find(move => move.row === toRow && move.col === toCol);
+        
+        // Handle capture if it's a jump
+        if (moveData.isJump) {
+          gameState.board[moveData.captureRow][moveData.captureCol] = null;
+        }
+        
+        // Move the piece
+        gameState.board[toRow][toCol] = piece;
+        gameState.board[fromRow][fromCol] = null;
+        
+        // Check for king promotion
+        if ((piece.color === 'red' && toRow === 0) || (piece.color === 'black' && toRow === 7)) {
+          piece.isKing = true;
+        }
+      }
+      
+      // Switch player
+      function switchPlayer() {
+        gameState.currentPlayer = gameState.currentPlayer === 'red' ? 'black' : 'red';
+      }
+      
+      // Check for winner
+      function checkWinner() {
+        let redPieces = 0;
+        let blackPieces = 0;
+        let redCanMove = false;
+        let blackCanMove = false;
+        
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 8; col++) {
+            const piece = gameState.board[row][col];
+            if (piece) {
+              if (piece.color === 'red') {
+                redPieces++;
+                if (!redCanMove) {
+                  redCanMove = getPossibleMoves(row, col).length > 0;
+                }
+              } else {
+                blackPieces++;
+                if (!blackCanMove) {
+                  blackCanMove = getPossibleMoves(row, col).length > 0;
+                }
+              }
+            }
+          }
+        }
+        
+        if (redPieces === 0 || !redCanMove) {
+          gameState.gameOver = true;
+          gameInfo.textContent = "Black wins!";
+        } else if (blackPieces === 0 || !blackCanMove) {
+          gameState.gameOver = true;
+          gameInfo.textContent = "Red wins!";
+        }
+      }
+      
+      // Update game info display
+      function updateGameInfo() {
+        if (!gameState.gameOver) {
+          gameInfo.textContent = `${gameState.currentPlayer.charAt(0).toUpperCase() + gameState.currentPlayer.slice(1)}'s turn`;
+          
+          if (gameState.mustJump) {
+            gameInfo.textContent += " (Must jump)";
+          }
+        }
+      }
+      
+      // Reset game
+      resetBtn.addEventListener('click', () => {
+        gameState = {
+          board: [],
+          currentPlayer: 'red',
+          selectedPiece: null,
+          validMoves: [],
+          mustJump: false,
+          gameOver: false
+        };
+        
+        initBoard();
+      });
+      
+      // Initialize game
+      initBoard();
+    });
+  </script>
+</body>
+</html>
