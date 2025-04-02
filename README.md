@@ -55,6 +55,10 @@ cd checkers-game
 - Network multiplayer support
 - Timer/clock functionality
 
+## Design
+<img width="349" alt="Screenshot 2025-04-02 105907" src="https://github.com/user-attachments/assets/1bbb2410-6986-4680-bc61-fe3dab9dbed1" />
+
+
 ## License
 
 [MIT License](LICENSE)
